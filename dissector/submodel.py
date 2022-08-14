@@ -60,21 +60,19 @@ class SubModel(pl.LightningModule):
         x, y = batch
         outputs = self(x)
         for k, v in outputs.items():
-            if k != 'original_output':
-                acc = self.acc(v, y)
-                self.log(f'{k}_val_acc', acc)
-                loss = self.loss(v, y)
-                self.log(f'{k}_val_loss', loss)
+            acc = self.acc(v, y)
+            self.log(f'{k}_val_acc', acc)
+            loss = self.loss(v, y)
+            self.log(f'{k}_val_loss', loss)
 
     def test_step(self, batch, batch_idx):
         x, y = batch
         outputs = self(x)
         for k, v in outputs.items():
-            if k != 'original_output':
-                acc = self.acc(v, y)
-                self.log(f'{k}_test_acc', acc)
-                loss = self.loss(v, y)
-                self.log(f'{k}_test_loss', loss)
+            acc = self.acc(v, y)
+            self.log(f'{k}_test_acc', acc)
+            loss = self.loss(v, y)
+            self.log(f'{k}_test_loss', loss)
 
 
 if __name__ == '__main__':
