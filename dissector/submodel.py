@@ -43,9 +43,9 @@ class SubModel(pl.LightningModule):
         outputs = self(x)
         y_hat = outputs['original_output']
         acc = self.acc(y_hat, y)
-        self.log(f'origin_train_acc', acc)
+        self.log(f'origin_train_acc', acc, sync_dist=True)
         loss = self.loss(y_hat, y)
-        self.log(f'origin_train_loss', loss)
+        self.log(f'origin_train_loss', loss, sync_dist=True)
         for idx, k in enumerate(self.classifiers.keys()):
             y_hat = outputs[k]
             acc = self.acc(y_hat, y)
@@ -61,18 +61,18 @@ class SubModel(pl.LightningModule):
         outputs = self(x)
         for k, v in outputs.items():
             acc = self.acc(v, y)
-            self.log(f'{k}_val_acc', acc)
+            self.log(f'{k}_val_acc', acc, sync_dist=True)
             loss = self.loss(v, y)
-            self.log(f'{k}_val_loss', loss)
+            self.log(f'{k}_val_loss', loss, sync_dist=True)
 
     def test_step(self, batch, batch_idx):
         x, y = batch
         outputs = self(x)
         for k, v in outputs.items():
             acc = self.acc(v, y)
-            self.log(f'{k}_test_acc', acc)
+            self.log(f'{k}_test_acc', acc, sync_dist=True)
             loss = self.loss(v, y)
-            self.log(f'{k}_test_loss', loss)
+            self.log(f'{k}_test_loss', loss, sync_dist=True)
 
 
 if __name__ == '__main__':
