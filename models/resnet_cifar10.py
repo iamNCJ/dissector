@@ -64,6 +64,8 @@ class BasicBlock(nn.Module):
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
 
+        self.relu = nn.ReLU()
+
         self.shortcut = nn.Sequential()
         if stride != 1 or in_planes != planes:
             if option == 'A':
@@ -80,15 +82,15 @@ class BasicBlock(nn.Module):
                 )
 
     def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.relu(self.bn1(self.conv1(x)))
         out = self.bn2(self.conv2(out))
         out += self.shortcut(x)
-        out = F.relu(out)
+        out = self.relu(out)
         return out
 
 
 class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_classes=10, use_cuda=True, dropout_rate=0.05, force_dropout=False):
+    def __init__(self, block, num_blocks, num_classes=10, dropout_rate=0.05, force_dropout=False):
         super(ResNet, self).__init__()
         self.in_planes = 16
         self.dropout_rate = dropout_rate
@@ -101,11 +103,12 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 64, num_blocks[2], stride=2)
         self.linear = nn.Linear(64, num_classes)
 
+        self.relu = nn.ReLU()
+        self.avg_pool2d = nn.AvgPool2d(8)
+
         self.apply(_weights_init)
         self.features = {}
-        self.device = torch.device("cuda" if use_cuda else "cpu")
         self.dropout_mask = {}
-        self.to(self.device)
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1] * (num_blocks - 1)
@@ -117,50 +120,14 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        x = x.to(self.device)
-        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.relu(self.bn1(self.conv1(x)))
         out = self.layer1(out)
         out = self.layer2(out)
         out = self.layer3(out)
-        out = F.avg_pool2d(out, out.size()[3])
+        out = self.avg_pool2d(out)
         out = out.view(out.size(0), -1)
         out = self.linear(out)
         return out
-
-    def hook_middle_representation(self):
-        def get_features(name):
-            def hook(model, input, output):
-                self.features[name] = output
-
-            return hook
-
-        self.layer3.register_forward_hook(get_features('feats_plr'))
-        self.layer2.register_forward_hook(get_features('feats_2'))
-        self.layer1.register_forward_hook(get_features('feats_1'))
-        self.conv1.register_forward_hook(get_features('feats_0'))
-
-    def hook_force_dropout(self, fixed: bool = False):
-        def force_dropout(module, input, output):
-            return nn.functional.dropout(output, p=self.dropout_rate, training=self.force_dropout)
-
-        def force_dropout_fixed(module, input, output):
-            if not self.force_dropout:
-                return output
-            module_id = id(module)
-            p1m = 1 - self.dropout_rate
-            scale = 1 / p1m
-            m = torch.distributions.uniform.Uniform(torch.tensor(0.0), torch.tensor(1.0))
-            if module_id not in self.dropout_mask:
-                self.dropout_mask[module_id] = torch.lt(
-                    m.sample(output.shape),
-                    p1m,
-                ).to(self.device)
-            return torch.mul(torch.mul(output, self.dropout_mask[module_id]), scale)
-
-        self.eval()  # Monte Carlo dropout requires other parts of the models to be in eval mode, like BN
-        for module in self.modules():
-            if isinstance(module, nn.BatchNorm2d):
-                module.register_forward_hook(force_dropout_fixed if fixed else force_dropout)
 
     def load_weights(self, wt_file):
         ckpt = torch.load(wt_file)
@@ -168,7 +135,6 @@ class ResNet(nn.Module):
         for key in list(state_dict.keys()):
             state_dict[key.replace('module.', '')] = state_dict.pop(key)
         self.load_state_dict(state_dict)
-        self.to(self.device)
 
 
 def resnet20():

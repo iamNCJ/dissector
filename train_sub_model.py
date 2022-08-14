@@ -6,16 +6,20 @@ import pytorch_lightning as pl
 
 if __name__ == '__main__':
     dm = CIFAR10DataModule('./data/cifar10')
+    # dm.setup()
     orig_model = ResNet20CIFAR10()
-    orig_model.load_weights('./resnet20-12fca82f.th')
+    # dl = dm.train_dataloader()
+    # x, y = next(iter(dl))
+    # orig_model(x)
+    # orig_model.load_weights('./resnet20-12fca82f.th')
     feat_dict = {
-        'bn1': 'feat_0',
-        'layer1.2.shortcut': 'feat_1',
-        'layer2.2.shortcut': 'feat_2',
-        'layer3.2.shortcut': 'feat_3',
+        'relu': 'feat_0',
+        'layer1.2.relu': 'feat_1',
+        'layer2.2.relu': 'feat_2',
+        'layer3.2.relu': 'feat_3',
     }
-    sub_model = SubModel(dm, feat_dict, n_classes=10)
-    trainer = pl.Trainer(gpus=-1)
+    sub_model = SubModel(orig_model, feat_dict, n_classes=10)
+    trainer = pl.Trainer(accelerator='auto')
     trainer.fit(sub_model, dm)
     trainer.test(sub_model, dm)
     trainer.save_checkpoint('./checkpoints/sub_model.ckpt')

@@ -31,26 +31,30 @@ class SubModel(pl.LightningModule):
         return x
 
     def configure_optimizers(self):
-        optimizers = {
-            k: torch.optim.Adam(classifier.parameters(), lr=self.hparams.lr)
-            for k, classifier in self.classifiers.items()
-        }
+        optimizers = [
+            torch.optim.Adam(classifier.parameters(), lr=self.hparams.lr)
+            for classifier in self.classifiers.values()
+        ]  # ModuleDict is **ordered**
         return optimizers, []
 
-    def training_step(self, batch, batch_idx, optimizer_idx):
+    def training_step(self, batch, batch_idx):
         opts = self.optimizers(use_pl_optimizer=True)
-
         x, y = batch
         outputs = self(x)
-        for k, v in outputs.items():
-            if k != 'original_output':
-                acc = self.acc(v, y)
-                self.log(f'{k}_train_acc', acc)
-                loss = self.loss(v, y)
-                self.log(f'{k}_train_loss', loss)
-                opts[k].zero_grad()
-                self.manual_backward(loss)
-                opts[k].step()
+        y_hat = outputs['original_output']
+        acc = self.acc(y_hat, y)
+        self.log(f'origin_train_acc', acc)
+        loss = self.loss(y_hat, y)
+        self.log(f'origin_train_loss', loss)
+        for idx, k in enumerate(self.classifiers.keys()):
+            y_hat = outputs[k]
+            acc = self.acc(y_hat, y)
+            self.log(f'{k}_train_acc', acc)
+            loss = self.loss(y_hat, y)
+            self.log(f'{k}_train_loss', loss)
+            opts[idx].zero_grad()
+            self.manual_backward(loss)
+            opts[idx].step()
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
