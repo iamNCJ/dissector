@@ -1,6 +1,8 @@
 import torch
 from torch.fx import symbolic_trace
 
+from dissector.constants import ORIGINAL_OUTPUT
+
 
 def get_mid_layer_extractor(module: torch.nn.Module, middle_feat_dict: dict[str, str]):
     proxy_output_dict = {}
@@ -9,7 +11,7 @@ def get_mid_layer_extractor(module: torch.nn.Module, middle_feat_dict: dict[str,
         if node.target in middle_feat_dict.keys():
             proxy_output_dict[middle_feat_dict[node.target]] = node
         if node.op == 'output':
-            proxy_output_dict['original_output'] = node.args[0]  # output node only has one arg
+            proxy_output_dict[ORIGINAL_OUTPUT] = node.args[0]  # output node only has one arg
             node.update_arg(0, proxy_output_dict)
 
     symbolic_traced.graph.lint()
@@ -32,4 +34,4 @@ if __name__ == '__main__':
     for k, v in x.items():
         print(k, end=' ')
         print(v.shape)
-    print(x['original_output'])
+    print(x[ORIGINAL_OUTPUT])

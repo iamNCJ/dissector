@@ -4,6 +4,7 @@ import pytorch_lightning as pl
 import torchmetrics
 
 from dissector.mid_layer_extractor import get_mid_layer_extractor
+from dissector.constants import ORIGINAL_OUTPUT
 
 
 class SubModel(pl.LightningModule):
@@ -17,7 +18,7 @@ class SubModel(pl.LightningModule):
                 nn.Flatten(),
                 nn.LazyLinear(n_classes)
             )
-            for v in middle_feat_dict.values() if v != 'original_output'
+            for v in middle_feat_dict.values() if v != ORIGINAL_OUTPUT
         }
         self.classifiers = nn.ModuleDict(classifiers)
         self.loss = torch.nn.CrossEntropyLoss()
@@ -48,7 +49,7 @@ class SubModel(pl.LightningModule):
         opts = self.optimizers(use_pl_optimizer=True)
         x, y = batch
         outputs = self(x)
-        y_hat = outputs['original_output']
+        y_hat = outputs[ORIGINAL_OUTPUT]
         _ = self.metrics(y, y_hat, 'origin', 'train')
         for idx, k in enumerate(self.classifiers.keys()):
             y_hat = outputs[k]
@@ -68,6 +69,21 @@ class SubModel(pl.LightningModule):
         outputs = self(x)
         for k, v in outputs.items():
             _ = self.metrics(y, v, k, 'test')
+
+    def sv_score(self, batch):
+        x = batch if isinstance(batch, torch.Tensor) else batch[0]
+        outputs = self(x)
+        lx = torch.topk(outputs[ORIGINAL_OUTPUT], 1).indices[:, 0]  # [B, 1], highest prob label
+        for k in self.classifiers.keys():
+            probs = torch.nn.functional.softmax(outputs[k], dim=1)
+            top2 = torch.topk(probs, k=2)
+            top2_prob = top2.values
+            top_label = top2.indices[:, 0]
+            lx_prob = probs[torch.range(0, 31, dtype=int), lx]
+            correct_mask = top_label == lx
+            correct_sv = top2_prob[:, 0] / (top2_prob[:, 0] + top2_prob[:, 1])
+            wrong_sv = 1. - top2_prob[:, 0] / (top2_prob[:, 0] + lx_prob)
+            sv = correct_mask * correct_sv + ~correct_mask * wrong_sv
 
 
 if __name__ == '__main__':

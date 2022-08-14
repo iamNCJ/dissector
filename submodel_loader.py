@@ -19,6 +19,9 @@ if __name__ == '__main__':
         middle_feat_dict=feat_dict
     )
     print(sub_model)
-    trainer = pl.Trainer()
+    # trainer = pl.Trainer()
     dm = CIFAR10DataModule('./data/cifar10')
-    trainer.test(sub_model, dm)
+    # trainer.test(sub_model, dm)
+    dm.setup()
+    batch = next(iter(dm.train_dataloader()))
+    sub_model.sv_score(batch)
