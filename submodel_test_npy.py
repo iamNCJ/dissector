@@ -19,8 +19,9 @@ if __name__ == '__main__':
         middle_feat_dict=feat_dict,
         feat_seq=feat_seq
     )
-    trainer = pl.Trainer()
+    trainer = pl.Trainer(accelerator='auto')
     for name in ['BE', 'BIM', 'DeepFool', 'Dropout-SIA', 'FGSM', 'PGD', 'SIA', 'Dropout-SIA-4']:
+        print(name)
         dm = NPYDataModule(image_npy_file=f'../SIA-research/ae/cifar10/{name}/ae.npy',
                            label_npy_file=f'../SIA-research/ae/cifar10/{name}/label.npy')
         trainer.test(sub_model, dm)
