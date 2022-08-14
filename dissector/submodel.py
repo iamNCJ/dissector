@@ -37,21 +37,22 @@ class SubModel(pl.LightningModule):
         ]  # ModuleDict is **ordered**
         return optimizers, []
 
+    def metrics(self, y, y_hat, feat_name, stage):
+        acc = self.acc(y_hat, y)
+        loss = self.loss(y_hat, y)
+        self.log(f'{feat_name}_{stage}_acc', acc, sync_dist=True)
+        self.log(f'{feat_name}_{stage}_loss', loss, sync_dist=True)
+        return acc, loss
+
     def training_step(self, batch, batch_idx):
         opts = self.optimizers(use_pl_optimizer=True)
         x, y = batch
         outputs = self(x)
         y_hat = outputs['original_output']
-        acc = self.acc(y_hat, y)
-        self.log(f'origin_train_acc', acc, sync_dist=True)
-        loss = self.loss(y_hat, y)
-        self.log(f'origin_train_loss', loss, sync_dist=True)
+        _ = self.metrics(y, y_hat, 'origin', 'train')
         for idx, k in enumerate(self.classifiers.keys()):
             y_hat = outputs[k]
-            acc = self.acc(y_hat, y)
-            self.log(f'{k}_train_acc', acc)
-            loss = self.loss(y_hat, y)
-            self.log(f'{k}_train_loss', loss)
+            _, loss = self.metrics(y, y_hat, k, 'train')
             opts[idx].zero_grad()
             self.manual_backward(loss)
             opts[idx].step()
@@ -60,19 +61,13 @@ class SubModel(pl.LightningModule):
         x, y = batch
         outputs = self(x)
         for k, v in outputs.items():
-            acc = self.acc(v, y)
-            self.log(f'{k}_val_acc', acc, sync_dist=True)
-            loss = self.loss(v, y)
-            self.log(f'{k}_val_loss', loss, sync_dist=True)
+            _ = self.metrics(y, v, k, 'val')
 
     def test_step(self, batch, batch_idx):
         x, y = batch
         outputs = self(x)
         for k, v in outputs.items():
-            acc = self.acc(v, y)
-            self.log(f'{k}_test_acc', acc, sync_dist=True)
-            loss = self.loss(v, y)
-            self.log(f'{k}_test_loss', loss, sync_dist=True)
+            _ = self.metrics(y, v, k, 'test')
 
 
 if __name__ == '__main__':
