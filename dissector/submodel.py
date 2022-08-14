@@ -96,7 +96,7 @@ class SubModel(pl.LightningModule):
 
     def pv_score(self, batch, growth_type: Literal['linear1', 'leaner2', 'log1', 'exp1'] = 'log1'):
         sv = self.sv_score(batch)
-        x = torch.arange(1, len(self.classifiers) + 1)
+        x = torch.arange(1, len(self.classifiers) + 1, device=self.device)
         match growth_type:
             case 'linear1':
                 weights = x
