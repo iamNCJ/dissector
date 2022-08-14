@@ -1,13 +1,17 @@
 import torch
 import torch.nn as nn
+import pytorch_lightning as pl
+import torchmetrics
 
 from dissector.mid_layer_extractor import get_mid_layer_extractor
 
 
-class SubModel(nn.Module):
-    def __init__(self, orig_model, middle_feat_dict, n_classes: int = 1000):
+class SubModel(pl.LightningModule):
+    def __init__(self, orig_model, middle_feat_dict, n_classes: int = 1000, lr: float = 0.001):
         super(SubModel, self).__init__()
+        self.save_hyperparameters(ignore=['orig_model', 'middle_feat_dict'])
         self.orig_model = get_mid_layer_extractor(orig_model, middle_feat_dict)
+        self.orig_model.requires_grad_(False)
         classifiers = {
             v: nn.Sequential(
                 nn.Flatten(),
@@ -16,12 +20,57 @@ class SubModel(nn.Module):
             for v in middle_feat_dict.values() if v != 'original_output'
         }
         self.classifiers = nn.ModuleDict(classifiers)
+        self.loss = torch.nn.CrossEntropyLoss()
+        self.acc = torchmetrics.Accuracy()
+        self.automatic_optimization = False
 
     def forward(self, x):
         x = self.orig_model(x)
         for k, v in self.classifiers.items():
             x[k] = v(x[k])
         return x
+
+    def configure_optimizers(self):
+        optimizers = {
+            k: torch.optim.Adam(classifier.parameters(), lr=self.hparams.lr)
+            for k, classifier in self.classifiers.items()
+        }
+        return optimizers, []
+
+    def training_step(self, batch, batch_idx, optimizer_idx):
+        opts = self.optimizers(use_pl_optimizer=True)
+
+        x, y = batch
+        outputs = self(x)
+        for k, v in outputs.items():
+            if k != 'original_output':
+                acc = self.acc(v, y)
+                self.log(f'{k}_train_acc', acc)
+                loss = self.loss(v, y)
+                self.log(f'{k}_train_loss', loss)
+                opts[k].zero_grad()
+                self.manual_backward(loss)
+                opts[k].step()
+
+    def validation_step(self, batch, batch_idx):
+        x, y = batch
+        outputs = self(x)
+        for k, v in outputs.items():
+            if k != 'original_output':
+                acc = self.acc(v, y)
+                self.log(f'{k}_val_acc', acc)
+                loss = self.loss(v, y)
+                self.log(f'{k}_val_loss', loss)
+
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+        outputs = self(x)
+        for k, v in outputs.items():
+            if k != 'original_output':
+                acc = self.acc(v, y)
+                self.log(f'{k}_test_acc', acc)
+                loss = self.loss(v, y)
+                self.log(f'{k}_test_loss', loss)
 
 
 if __name__ == '__main__':
