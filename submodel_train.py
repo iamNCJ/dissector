@@ -15,7 +15,8 @@ if __name__ == '__main__':
         'layer2.2.relu': 'feat_2',
         'layer3.2.relu': 'feat_3',
     }
-    sub_model = SubModel(orig_model, feat_dict, n_classes=10)
+    feat_seq = ['feat_0', 'feat_1', 'feat_2', 'feat_3']
+    sub_model = SubModel(orig_model, feat_dict, feat_seq, n_classes=10)
 
     # dry run to initialize LazyModules
     dm.setup()

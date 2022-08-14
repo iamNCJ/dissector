@@ -5,7 +5,6 @@ import pytorch_lightning as pl
 
 
 if __name__ == '__main__':
-    # init
     orig_model = ResNet20CIFAR10()
     feat_dict = {
         'relu': 'feat_0',
@@ -13,15 +12,13 @@ if __name__ == '__main__':
         'layer2.2.relu': 'feat_2',
         'layer3.2.relu': 'feat_3',
     }
+    feat_seq = ['feat_0', 'feat_1', 'feat_2', 'feat_3']
     sub_model = SubModel.load_from_checkpoint(
         './checkpoints/sub_model.ckpt',
         orig_model=orig_model,
-        middle_feat_dict=feat_dict
+        middle_feat_dict=feat_dict,
+        feat_seq=feat_seq
     )
-    print(sub_model)
-    # trainer = pl.Trainer()
+    trainer = pl.Trainer()
     dm = CIFAR10DataModule('./data/cifar10')
-    # trainer.test(sub_model, dm)
-    dm.setup()
-    batch = next(iter(dm.train_dataloader()))
-    sub_model.sv_score(batch)
+    trainer.test(sub_model, dm)
