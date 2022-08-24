@@ -20,7 +20,7 @@ if __name__ == '__main__':
         feat_seq=feat_seq
     )
     trainer = pl.Trainer(accelerator='auto')
-    for name in ['BE', 'BIM', 'DeepFool', 'Dropout-SIA', 'FGSM', 'PGD', 'SIA', 'Dropout-SIA-4']:
+    for name in ['BE', 'BIM', 'DeepFool', 'Dropout-SIA', 'FGSM', 'PGD', 'SIA', 'Dropout-SIA-4', 'Dropout-SIA-4-Targeted', 'PGD-Targeted', 'SIA-Targeted']:
         print(name)
         dm = NPYDataModule(image_npy_file=f'../SIA-research/ae/cifar10/{name}/ae.npy',
                            label_npy_file=f'../SIA-research/ae/cifar10/{name}/label.npy')
